@@ -1,0 +1,166 @@
+local LP = game:GetService("Players").LocalPlayer
+
+local Character = LP.Character or LP.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local UserInputService = game:GetService("UserInputService")
+
+local RaycastParams = RaycastParams.new()
+RaycastParams.FilterDescendantsInstances = {Character}
+RaycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+local Weapons = Character:WaitForChild("Weapons", 5)
+if not Weapons then return end
+
+local Charleville = Weapons:FindFirstChild("BrownBess") or Weapons:FindFirstChild("Charleville")
+if not Charleville then return end
+
+local Hold = Charleville:FindFirstChild("Hold")
+if not Hold then return end
+
+local MuzzleAttachment = Hold:FindFirstChild("MuzzleEffects")
+if not MuzzleAttachment then return end
+
+local Muzzle = Hold
+
+local CurrentLoop = nil
+local CurrentPlayer = nil
+local NewMethod = false
+
+local ScreenGUI = Instance.new("ScreenGui")
+ScreenGUI.Parent = LP:WaitForChild("PlayerGui")
+
+local TextLabel = Instance.new("TextLabel")
+TextLabel.Text = "Shoot at head from distance: false"
+TextLabel.TextScaled = true
+TextLabel.Position = UDim2.new(0, 1700, 0, 0)
+TextLabel.Size = UDim2.new(0, 200, 0, 100)
+TextLabel.Parent = ScreenGUI
+
+
+local function AimLoop(TargetPlayer)
+	if not TargetPlayer or not TargetPlayer.Character then return end
+
+	if CurrentLoop then
+		local success, err = pcall(function()
+			task.cancel(CurrentLoop)
+			CurrentLoop = nil
+		end)
+
+		if not success then
+			print("Something went wrong.", success, err)
+		end
+	end
+
+	CurrentLoop = task.spawn(function()
+		CurrentPlayer = TargetPlayer
+
+		while task.wait() do
+			if not LP.Character or Humanoid.Health <= 0 then break end
+			if not TargetPlayer or not TargetPlayer.Character then break end
+
+			local TargetHumanoid = TargetPlayer.Character:FindFirstChild("Humanoid")
+			local TargetRootPart = TargetPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+			if not TargetHumanoid or not TargetRootPart or TargetHumanoid.Health <= 0 then 
+				CurrentPlayer = nil
+				if CurrentLoop then
+					local success, err = pcall(function()
+						task.cancel(CurrentLoop)
+						CurrentLoop = nil
+					end)
+					
+					if not success then
+						print("Something went wrong.", success, err)
+					end
+
+				end
+				break
+			end
+			
+			local LPPosition = LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character.HumanoidRootPart.Position or Vector3.new(0, 0, 0)
+			local Distance = (LPPosition - TargetRootPart.Position).Magnitude
+			
+			local targetPosition
+
+			if NewMethod then
+				if Distance > 120 then
+					local targetHead = TargetPlayer.Character:FindFirstChild("Head")
+
+					if targetHead then
+						targetPosition = targetHead.Position
+					else
+						targetPosition = TargetRootPart.Position
+					end
+				else
+					targetPosition = TargetRootPart.Position
+				end
+			else
+				targetPosition = TargetRootPart.Position
+			end
+			
+			
+			local muzzlePosition = Muzzle.Position + Vector3.new(0, 3, 0)
+
+			local rayResult = workspace:Raycast(muzzlePosition, (targetPosition - muzzlePosition).Unit * 500, RaycastParams)
+			if rayResult and rayResult.Instance and rayResult.Instance:IsDescendantOf(TargetPlayer.Character) then
+
+				local LookAngles = CFrame.new(muzzlePosition, targetPosition)
+				MuzzleAttachment.WorldCFrame = LookAngles
+
+			end
+
+			for _, part in ipairs(TargetPlayer.Character:GetChildren()) do
+				if part:IsA("BasePart") then
+					part.Transparency = 0
+					part.Material = Enum.Material.Neon
+					part.Color = Color3.fromRGB(math.random(1,255), math.random(1,255), math.random(1,255))
+				end
+			end
+		end
+	end)
+end
+
+
+local function GetClosestPlayer()
+	local closestPlayer = nil
+	local closestDistance = math.huge
+
+	for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+		if player ~= LP and player.Character and player.Team ~= LP.Team then
+			local humanoid = player.Character:FindFirstChild("Humanoid")
+			local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+
+			if humanoid and rootPart and humanoid.Health > 0 then
+				local distance = (rootPart.Position - Character:FindFirstChild("HumanoidRootPart").Position).Magnitude
+				if distance < closestDistance then
+					closestDistance = distance
+					closestPlayer = player
+				end
+			end
+		end
+	end
+
+	return closestPlayer
+end
+
+UserInputService.InputBegan:Connect(function(inputObject)
+	if inputObject.KeyCode == Enum.KeyCode.E then
+		NewMethod = not NewMethod
+		
+		if NewMethod then
+			TextLabel.Text = "Shoot at head from distance: true"
+		else
+			TextLabel.Text = "Shoot at head from distance: false"
+		end
+	end
+end)
+
+while true do
+	local closestPlayer = GetClosestPlayer()
+
+	if closestPlayer ~= CurrentPlayer or CurrentPlayer == nil then
+		AimLoop(closestPlayer)
+	end
+
+	wait(.1)
+end
