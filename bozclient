@@ -1,0 +1,358 @@
+local LP = game:GetService("Players").LocalPlayer
+local PlayerGui = LP:WaitForChild("PlayerGui")
+local Camera = workspace.CurrentCamera
+local UserInputService = game:GetService("UserInputService")
+
+-- Variables for toggles
+local SilentAimToggle = false
+local SilentAim = false
+local RageAim = false
+local Aimbot = false
+local HoldingAimbotKey = false
+local ESP = false
+local TeamCheck = false
+
+-- Function to clear GUI elements
+local function ClearGuis()
+    for _, Gui in pairs(PlayerGui:GetChildren()) do
+        Gui:Destroy()
+    end
+end
+
+--ClearGuis()
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({
+    Name = "Spain Client for Napoleonic Wars",
+    Icon = 10183122096,
+    LoadingTitle = "Spain Client",
+    LoadingSubtitle = "by Orpios",
+    Theme = "Bloom",
+
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = false,
+
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "SpainClient",
+        FileName = "Config"
+    },
+
+    Discord = {
+        Enabled = false,
+        Invite = "noinvitelink",
+        RememberJoins = true
+    },
+
+    KeySystem = false,
+    KeySettings = {
+        Title = "Untitled",
+        Subtitle = "Key System",
+        Note = "No method of obtaining the key is provided",
+        FileName = "Key",
+        SaveKey = true,
+        GrabKeyFromSite = false,
+        Key = {"Hello"}
+    }
+})
+
+-- Create Tabs
+local AimbotTab = Window:CreateTab("Aimbot", "crosshair")
+local ESPTab = Window:CreateTab("ESP", "square")
+local MiscTab = Window:CreateTab("Misc", "pipette")
+
+-- Aimbot Toggle
+AimbotTab:CreateToggle({
+    Name = "Toggle Aimbot",
+    CurrentValue = Aimbot,
+    Flag = "Aimbot",
+    Callback = function()
+        Aimbot = not Aimbot
+    end,
+})
+
+-- Aimbot Keybind
+AimbotTab:CreateKeybind({
+   Name = "Aimbot Keybind",
+   CurrentKeybind = "E",
+   HoldToInteract = true,
+   Flag = "AimbotKeybind",
+   Callback = function(IsHolding)
+       HoldingAimbotKey = IsHolding
+   end,
+})
+
+-- Silent Aim Toggle
+AimbotTab:CreateToggle({
+    Name = "Toggle Silent Aim",
+    CurrentValue = SilentAimToggle,
+    Flag = "SilentAimToggle",
+    Callback = function()
+        SilentAimToggle = not SilentAimToggle
+    end,
+})
+
+-- Silent Aim Type Dropdown
+AimbotTab:CreateDropdown({
+    Name = "Silent Aim Type",
+    Options = {"Disabled", "Rage Aim (Hit nearest player to mouse)", "Silent Aim (Mouse on Target to hit)"},
+    CurrentOption = {"Disabled"},
+    MultipleOptions = false,
+    Flag = "SilentAimType",
+    Callback = function(Options)
+        if Options[1] == "Rage Aim (Hit nearest player to mouse)" then
+            RageAim = true
+            SilentAim = false
+        elseif Options[1] == "Silent Aim (Mouse on Target to hit)" then
+            SilentAim = true
+            RageAim = false
+        else
+            SilentAim = false
+            RageAim = false
+        end
+    end,
+})
+
+-- ESP Toggle
+ESPTab:CreateToggle({
+    Name = "Toggle ESP",
+    CurrentValue = ESP,
+    Flag = "ESP",
+    Callback = function()
+        ESP = not ESP
+    end,
+})
+
+-- Team Check Toggle
+ESPTab:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = TeamCheck,
+    Flag = "TeamCheck",
+    Callback = function()
+        TeamCheck = not TeamCheck
+    end,
+})
+
+-- ESP Radius Slider
+ESPTab:CreateSlider({
+    Name = "ESP Radius",
+    Range = {0, 1000},
+    Increment = 10,
+    Suffix = "Studs",
+    CurrentValue = 250,
+    Flag = "ESPRadius",
+    Callback = function(Value)
+        -- Function when slider changes (if needed)
+    end,
+})
+
+-- Notification
+Rayfield:Notify({
+    Title = "Notification Title",
+    Content = "Notification Content",
+    Duration = 6.5,
+    Image = "rewind",
+})
+
+--------------------------------[[[[]]]]------------------------------------------------
+
+local LP = game:GetService("Players").LocalPlayer
+local Weapon = LP:WaitForChild("EquippedWeapon"):WaitForChild("Musket")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Network = ReplicatedStorage:WaitForChild("Network")
+local RemoteEvent = Network:WaitForChild("RemoteEvent")
+
+local targetPlayer = nil
+local lastTargetTime = 0
+local targetHoldTime = 0.3
+local DamageCooldown = false
+
+local function DamagePlayer(TargetPlayer)
+    if DamageCooldown then return end
+
+    local args = {
+        {
+            V = {
+                {
+                    TargetPlayer,
+                    false
+                }
+            }
+        }
+    }
+
+    RemoteEvent:FireServer(unpack(args))
+
+    DamageCooldown = true
+    task.delay(2, function()
+        DamageCooldown = false
+    end)
+end
+
+local function GetClosestPlayerToCFrame(TargetCFrame)
+    local ClosestDistance = math.huge
+    local ClosestPlayer = nil
+
+    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local humanoid = player.Character.Humanoid
+            if humanoid.Health > 0 and humanoid.Health <= 100 and player.Team ~= LP.Team then
+                local playerCFrame = player.Character.HumanoidRootPart.CFrame
+                local distance = (playerCFrame.Position - TargetCFrame.Position).Magnitude
+
+                if distance < ClosestDistance then
+                    ClosestDistance = distance
+                    ClosestPlayer = player
+                end
+            end
+        end
+    end
+
+    return ClosestPlayer
+end
+
+local function UpdateTargetPlayer()
+    local Target = LP:GetMouse().Target
+    if Target and Target.Parent then
+        local TargetPlayer = game:GetService("Players"):GetPlayerFromCharacter(Target.Parent)
+        if TargetPlayer and TargetPlayer ~= targetPlayer then
+            targetPlayer = TargetPlayer
+            lastTargetTime = tick()
+        end
+    end
+end
+
+local function GetMouseCFrame()
+    return LP:GetMouse().Hit
+end
+
+spawn(function()
+    while true do
+        UpdateTargetPlayer()
+        if targetPlayer and tick() - lastTargetTime > targetHoldTime then
+            targetPlayer = nil
+        end
+        task.wait(0.05)
+    end
+end)
+
+local function GetClosestPlayer()
+    local closestPlayer = nil
+    local closestDistance = math.huge
+
+    for _, targetPlayer in pairs(game:GetService("Players"):GetPlayers()) do
+        if targetPlayer ~= LP and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local targetPosition = targetPlayer.Character.HumanoidRootPart.Position
+            local playerPosition = LP.Character.HumanoidRootPart.Position
+            local distance = (targetPosition - playerPosition).Magnitude
+
+            if distance < closestDistance then
+                closestPlayer = targetPlayer
+                closestDistance = distance
+            end
+        end
+    end
+
+    return closestPlayer
+end
+
+local function AimAtTarget(targetPlayer)
+    if not targetPlayer then return end
+    if not targetPlayer.Character then return end
+
+    local targetPart = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetPart then return end
+
+    local screenPoint, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+    if not onScreen then return end
+
+    local mouseLocation = UserInputService:GetMouseLocation()
+    local deltaX = screenPoint.X - mouseLocation.X
+    local deltaY = screenPoint.Y - mouseLocation.Y
+
+    deltaX = math.clamp(deltaX, -10, 10)
+    deltaY = math.clamp(deltaY, -10, 10)
+
+    mousemoverel(deltaX, deltaY)
+end
+
+
+spawn(function()
+    while true do
+        if HoldingAimbotKey then
+            local clos = GetClosestPlayer()
+            AimAtTarget(clos)
+        end
+        task.wait()
+    end
+end)
+
+
+local mt = getrawmetatable(game)
+if setreadonly then
+    setreadonly(mt, false)
+else
+    make_writeable(mt)
+end
+
+local old = mt.__namecall
+mt.__namecall = newcclosure(function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+
+    if method == "FireServer" and SilentAimToggle then
+        local success, err = pcall(function()
+            if type(args[1]) == "table" and args[1].y then
+                if DamageCooldown then
+                    return
+                end
+            end
+
+
+
+            if args[1] and type(args[1]) == "table" then
+                for _, Item in pairs(args[1]) do
+                    if type(Item) == "table" then
+                        for _, Item2 in pairs(Item) do
+                            if type(Item2) == "table" then
+                                for index, Item3 in pairs(Item2) do
+                                    if Item3 == Weapon and index == 2 then
+
+                                        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("Humanoid") and SilentAim then
+                                            local humanoid = targetPlayer.Character.Humanoid
+                                            if humanoid.Health > 0 and humanoid.Health <= 100 and targetPlayer.Team ~= LP.Team then
+                                                DamagePlayer(targetPlayer)
+                                            end
+                                        end
+
+                                        if RageAim then
+                                            print("raging ong")
+                                            local MouseCFrame = GetMouseCFrame()
+                                            local ClosestPlayer = GetClosestPlayerToCFrame(MouseCFrame)
+                                            if ClosestPlayer then
+                                                print(ClosestPlayer)
+                                                DamagePlayer(ClosestPlayer)
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+
+        if not success then
+            warn("Unexpected Error:", err)
+        end
+    end
+
+    return old(self, unpack(args))
+end)
+
+if setreadonly then
+    setreadonly(mt, true)
+else
+    make_readonly(mt)
+end
