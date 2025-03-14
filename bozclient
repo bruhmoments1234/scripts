@@ -11,15 +11,7 @@ local Aimbot = false
 local HoldingAimbotKey = false
 local ESP = false
 local TeamCheck = false
-
--- Function to clear GUI elements
-local function ClearGuis()
-    for _, Gui in pairs(PlayerGui:GetChildren()) do
-        Gui:Destroy()
-    end
-end
-
---ClearGuis()
+local FBWalk = false
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
@@ -172,7 +164,7 @@ local function DamagePlayer(TargetPlayer)
 
     local args = {
         {
-            V = {
+            U = {
                 {
                     TargetPlayer,
                     false
@@ -350,6 +342,7 @@ mt.__namecall = newcclosure(function(self, ...)
 
     return old(self, unpack(args))
 end)
+
 
 if setreadonly then
     setreadonly(mt, true)
